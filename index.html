@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Heist - Turn-Based Survival</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-wrap">
+    <h1>Data Heist: Prediction Duel</h1>
+
+    <section class="hud" aria-live="polite">
+      <p>Round: <span id="round">1</span></p>
+      <p>Survivors: <span id="survivors">0</span></p>
+      <p>Zone: <span id="zone">10x10</span></p>
+      <p>Timer: <span id="timer">0.0</span>s</p>
+    </section>
+
+    <section class="hud hud-secondary" aria-live="polite">
+      <p>Your Aim: <span id="aim">None</span></p>
+      <p id="status">Planning: choose a direction.</p>
+    </section>
+
+    <canvas
+      id="gameCanvas"
+      width="480"
+      height="480"
+      aria-label="Grid stealth game"
+      role="img"
+    ></canvas>
+
+    <section class="joystick-wrap" aria-label="Aim joystick">
+      <p class="joystick-label">Mouse Aim Joystick</p>
+      <div id="joystick" class="joystick" role="application" aria-label="Direction joystick">
+        <div class="joystick-ring"></div>
+        <div class="joystick-cross"></div>
+        <div id="joystickStick" class="joystick-stick"></div>
+      </div>
+    </section>
+
+    <section class="help">
+      <p>Place: Click Grid</p>
+      <p>Aim: 360° Joystick (Arrows also work)</p>
+      <p>Restart: R</p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

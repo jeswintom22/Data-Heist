@@ -1,0 +1,179 @@
+:root {
+  --bg-deep: #040912;
+  --bg-mid: #0f2233;
+  --bg-soft: #1a3d57;
+  --panel: rgb(11 22 34 / 0.2);
+  --text: #e9f1f6;
+  --accent: #ffd166;
+  --cyan: #67d6ff;
+  --rose: #ff8e8e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(1000px 600px at 10% 8%, rgb(78 177 239 / 0.25), transparent 62%),
+    radial-gradient(920px 560px at 85% 14%, rgb(255 137 99 / 0.2), transparent 62%),
+    radial-gradient(1200px 700px at 50% 120%, rgb(73 219 184 / 0.12), transparent 55%),
+    linear-gradient(160deg, var(--bg-soft), var(--bg-mid) 45%, var(--bg-deep));
+  color: var(--text);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 25% 25%, rgb(145 220 255 / 0.08) 0 2px, transparent 2px),
+    radial-gradient(circle at 75% 70%, rgb(255 255 255 / 0.06) 0 1.5px, transparent 1.5px);
+  background-size: 42px 42px, 54px 54px;
+  pointer-events: none;
+}
+
+.game-wrap {
+  width: min(92vw, 560px);
+  text-align: center;
+  padding: 1.1rem;
+  background:
+    radial-gradient(circle at 20% 10%, rgb(255 255 255 / 0.13), transparent 35%),
+    linear-gradient(165deg, rgb(255 255 255 / 0.04), rgb(255 255 255 / 0.01)),
+    var(--panel);
+  border: 1px solid rgb(157 214 255 / 0.26);
+  border-radius: 26px;
+  box-shadow:
+    0 24px 55px rgb(0 0 0 / 0.45),
+    0 0 0 1px rgb(255 255 255 / 0.06) inset;
+  backdrop-filter: blur(10px);
+}
+
+h1 {
+  margin-top: 0.25rem;
+  margin-bottom: 0.8rem;
+  letter-spacing: 0.05em;
+  text-shadow: 0 4px 18px rgb(0 0 0 / 0.4);
+}
+
+.hud {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.42rem 0.72rem;
+  background: rgb(8 20 31 / 0.4);
+  border: 1px solid rgb(124 187 233 / 0.22);
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18) inset;
+}
+
+.hud-secondary {
+  margin-top: -0.3rem;
+}
+
+.hud p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+#status {
+  color: var(--accent);
+}
+
+canvas {
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  background:
+    radial-gradient(circle at 20% 18%, rgb(73 136 178 / 0.2), transparent 40%),
+    radial-gradient(circle at 80% 72%, rgb(79 168 203 / 0.16), transparent 43%),
+    #09131d;
+  border: 1px solid rgb(155 216 246 / 0.42);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 2px rgb(162 222 255 / 0.09) inset,
+    0 16px 36px rgb(0 0 0 / 0.33),
+    0 0 26px rgb(88 196 255 / 0.16);
+}
+
+.joystick-wrap {
+  margin-top: 0.8rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.42rem;
+}
+
+.joystick-label {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+.joystick {
+  width: 126px;
+  height: 126px;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+}
+
+.joystick-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgb(177 231 255 / 0.68);
+  background:
+    radial-gradient(circle at 30% 30%, rgb(151 225 255 / 0.25), rgb(31 62 88 / 0.2) 60%, rgb(11 21 32 / 0.35));
+  box-shadow:
+    0 0 30px rgb(94 197 255 / 0.3),
+    0 0 0 1px rgb(255 255 255 / 0.08) inset;
+}
+
+.joystick-cross {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background:
+    linear-gradient(transparent 49%, rgb(170 219 255 / 0.3) 49%, rgb(170 219 255 / 0.3) 51%, transparent 51%),
+    linear-gradient(90deg, transparent 49%, rgb(170 219 255 / 0.3) 49%, rgb(170 219 255 / 0.3) 51%, transparent 51%);
+}
+
+.joystick-stick {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 30%, #ffffff, var(--cyan) 35%, #2a78ad 80%);
+  box-shadow:
+    0 6px 18px rgb(0 0 0 / 0.35),
+    0 0 14px rgb(103 214 255 / 0.45);
+}
+
+.help {
+  margin-top: 0.65rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.2rem;
+  font-size: 0.9rem;
+  opacity: 0.95;
+}
+
+@media (max-width: 480px) {
+  .hud {
+    flex-direction: column;
+    align-items: center;
+  }
+}
