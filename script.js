@@ -8,6 +8,9 @@ const survivorsEl = document.getElementById("survivors");
 const zoneEl = document.getElementById("zone");
 const timerEl = document.getElementById("timer");
 const aimEl = document.getElementById("aim");
+const scoreEl = document.getElementById("score");
+const roundKillsEl = document.getElementById("roundKills");
+const roundElimsEl = document.getElementById("roundElims");
 const statusEl = document.getElementById("status");
 
 const GRID_SIZE = 10;
@@ -37,7 +40,8 @@ const player = {
   color: "#69d6ff",
   isPlayer: true,
   alive: true,
-  selectedAngle: null
+  selectedAngle: null,
+  score: 0
 };
 
 let bots = [];
@@ -48,10 +52,13 @@ let phaseTimer = PLANNING_DURATION;
 let showFireStart = 0;
 let showFireUntil = 0;
 let fireLines = [];
+let resolutionActors = [];
 let playerPlacementLocked = false;
 let lastPlayerCell = null;
 let joystickPointerActive = false;
 let activeZone = getZoneForRound(1);
+let playerRoundKills = 0;
+let lastRoundEliminatedCount = 0;
 let lastTime = 0;
 
 function createEntity(id, label, color, isPlayerEntity) {
@@ -63,7 +70,8 @@ function createEntity(id, label, color, isPlayerEntity) {
     x: 0,
     y: 0,
     alive: true,
-    selectedAngle: null
+    selectedAngle: null,
+    score: 0
   };
 }
 
@@ -108,8 +116,11 @@ function randomFreeCell(usedCells, zone) {
 function setupEntities() {
   player.alive = true;
   player.selectedAngle = null;
+  player.score = 0;
   playerPlacementLocked = false;
   lastPlayerCell = null;
+  playerRoundKills = 0;
+  lastRoundEliminatedCount = 0;
 
   bots = [];
   for (let i = 0; i < BOT_COUNT; i += 1) {
@@ -126,7 +137,10 @@ function beginPlanningPhase() {
   gameState = "planning";
   phaseTimer = PLANNING_DURATION;
   fireLines = [];
+  resolutionActors = [];
   playerPlacementLocked = false;
+  playerRoundKills = 0;
+  lastRoundEliminatedCount = 0;
   activeZone = getZoneForRound(roundNumber);
 
   const usedCells = new Set();
@@ -164,8 +178,21 @@ function beginResolutionPhase(nowSeconds) {
   gameState = "resolution";
   phaseTimer = RESOLUTION_DURATION;
 
-  fireLines = buildFireLines();
-  resolveHits(fireLines);
+  // Snapshot actors for this phase so shooter boxes stay visible during beam animation.
+  resolutionActors = aliveEntities().map((entity) => ({
+    id: entity.id,
+    label: entity.label,
+    color: entity.color,
+    isPlayer: entity.isPlayer,
+    x: entity.x,
+    y: entity.y,
+    selectedAngle: entity.selectedAngle
+  }));
+
+  fireLines = buildFireLinesFromActors(resolutionActors);
+  const result = resolveHits(resolutionActors, fireLines);
+  playerRoundKills = result.playerKills;
+  lastRoundEliminatedCount = result.eliminatedCount;
   showFireStart = nowSeconds;
   showFireUntil = nowSeconds + FIRE_ANIMATION_DURATION;
 
@@ -240,11 +267,10 @@ function getRayEnd(shooter, angle, zone) {
   };
 }
 
-function buildFireLines() {
-  const alive = aliveEntities();
+function buildFireLinesFromActors(actors) {
   const lines = [];
 
-  alive.forEach((shooter) => {
+  actors.forEach((shooter) => {
     if (shooter.selectedAngle === null) {
       return;
     }
@@ -261,13 +287,25 @@ function buildFireLines() {
   return lines;
 }
 
+function getEntityById(id) {
+  if (id === player.id) {
+    return player;
+  }
+  return bots.find((bot) => bot.id === id) || null;
+}
+
 // Line-of-fire detection for any direction using distance-to-ray math.
-function resolveHits(lines) {
+// Also awards 1 score point per unique target hit.
+function resolveHits(actors, lines) {
   const victims = new Set();
-  const alive = aliveEntities();
+  const killsByShooter = new Map();
 
   lines.forEach((line) => {
-    alive.forEach((target) => {
+    if (!killsByShooter.has(line.shooterId)) {
+      killsByShooter.set(line.shooterId, new Set());
+    }
+
+    actors.forEach((target) => {
       if (target.id === line.shooterId) {
         return;
       }
@@ -285,29 +323,71 @@ function resolveHits(lines) {
       const perpendicular = Math.abs(dx * line.uy - dy * line.ux);
       if (perpendicular <= HIT_RADIUS) {
         victims.add(target.id);
+        killsByShooter.get(line.shooterId).add(target.id);
       }
     });
   });
 
-  alive.forEach((entity) => {
-    if (victims.has(entity.id)) {
-      entity.alive = false;
+  killsByShooter.forEach((kills, shooterId) => {
+    const shooter = getEntityById(shooterId);
+    if (shooter) {
+      shooter.score += kills.size;
     }
   });
+
+  const playerKills = killsByShooter.has(player.id) ? killsByShooter.get(player.id).size : 0;
+
+  let eliminatedCount = 0;
+  [player, ...bots].forEach((entity) => {
+    if (victims.has(entity.id)) {
+      entity.alive = false;
+      eliminatedCount += 1;
+    }
+  });
+
+  return {
+    playerKills,
+    eliminatedCount
+  };
+}
+
+function chooseWinnerByPoints() {
+  const allEntities = [player, ...bots];
+  let best = allEntities[0];
+
+  for (let i = 1; i < allEntities.length; i += 1) {
+    const candidate = allEntities[i];
+    if (candidate.score > best.score) {
+      best = candidate;
+    }
+  }
+
+  const topScorers = allEntities.filter((entity) => entity.score === best.score);
+  if (topScorers.some((entity) => entity.id === player.id)) {
+    return player;
+  }
+
+  return topScorers.sort((a, b) => a.id.localeCompare(b.id))[0] || null;
 }
 
 function updateWinnerIfFinished() {
   const survivors = aliveEntities();
 
-  if (!player.alive) {
+  if (!player.alive && survivors.length > 1) {
     gameState = "gameover";
-    winner = survivors.length === 1 ? survivors[0] : null;
+    winner = null;
     return;
   }
 
-  if (survivors.length <= 1) {
+  if (survivors.length === 1) {
     gameState = "gameover";
-    winner = survivors.length === 1 ? survivors[0] : null;
+    winner = survivors[0];
+    return;
+  }
+
+  if (survivors.length === 0) {
+    gameState = "gameover";
+    winner = chooseWinnerByPoints();
   }
 }
 
@@ -344,6 +424,8 @@ function restartGame() {
   winner = null;
   roundNumber = 1;
   player.selectedAngle = null;
+  playerRoundKills = 0;
+  lastRoundEliminatedCount = 0;
   activeZone = getZoneForRound(1);
   setupEntities();
   beginPlanningPhase();
@@ -355,6 +437,9 @@ function updateUI() {
   zoneEl.textContent = `${activeZone.size}x${activeZone.size}`;
   timerEl.textContent = Math.max(0, phaseTimer).toFixed(1);
   aimEl.textContent = angleToLabel(player.selectedAngle);
+  scoreEl.textContent = String(player.score);
+  roundKillsEl.textContent = String(playerRoundKills);
+  roundElimsEl.textContent = String(lastRoundEliminatedCount);
 
   if (gameState === "planning") {
     if (!playerPlacementLocked) {
@@ -364,14 +449,14 @@ function updateUI() {
     }
   } else if (gameState === "resolution") {
     statusEl.textContent = "Resolution: beams fired.";
-  } else if (!player.alive) {
-    statusEl.textContent = "Game Over! You were eliminated. Press R to restart.";
+  } else if (!player.alive && winner !== player) {
+    statusEl.textContent = `Game Over! You were eliminated. Score: ${player.score}. Press R to restart.`;
   } else if (winner && winner.id === player.id) {
-    statusEl.textContent = "You Win! Last survivor standing. Press R to restart.";
+    statusEl.textContent = `You Win! Score: ${player.score}. Press R to restart.`;
   } else if (winner) {
-    statusEl.textContent = `${winner.label} survived. Press R to restart.`;
+    statusEl.textContent = `${winner.label} wins on points (${winner.score}). Your score: ${player.score}. Press R to restart.`;
   } else {
-    statusEl.textContent = "Everyone was eliminated. Press R to restart.";
+    statusEl.textContent = `Everyone was eliminated. Your score: ${player.score}. Press R to restart.`;
   }
 }
 
@@ -495,6 +580,19 @@ function drawFireLines(nowSeconds) {
     ctx.beginPath();
     ctx.arc(tipX, tipY, 4, 0, Math.PI * 2);
     ctx.fill();
+
+    // Subtle flare particles around the tip.
+    for (let i = 0; i < 3; i += 1) {
+      const phase = nowSeconds * 16 + i * 2.2 + line.angle;
+      const px = tipX - Math.cos(line.angle) * (8 + i * 4) + Math.cos(phase) * 2.2;
+      const py = tipY - Math.sin(line.angle) * (8 + i * 4) + Math.sin(phase) * 2.2;
+      const alpha = 0.22 + 0.18 * (1 - i / 3);
+
+      ctx.fillStyle = `rgb(255 140 70 / ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(px, py, 1.8 + i * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
   ctx.restore();
 }
@@ -505,13 +603,21 @@ function drawEntities(nowSeconds) {
     return;
   }
 
+  if (gameState === "resolution") {
+    // Draw the actors from shot start so boxes do not disappear mid-animation.
+    resolutionActors.forEach((entity) => {
+      drawEntity(entity);
+      drawAimIndicator(entity);
+    });
+    drawFireLines(nowSeconds);
+    return;
+  }
+
   const alive = aliveEntities();
   alive.forEach((entity) => {
     drawEntity(entity);
     drawAimIndicator(entity);
   });
-
-  drawFireLines(nowSeconds);
 }
 
 function getCanvasGridCell(clientX, clientY) {
