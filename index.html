@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Data Heist: a small turn-based prediction duel built with canvas, mouse/touch joystick and keyboard controls." />
   <title>Data Heist - Turn-Based Survival</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -29,6 +30,7 @@
       id="gameCanvas"
       width="480"
       height="480"
+      tabindex="0"
       aria-label="Grid stealth game"
       role="img"
     ></canvas>
@@ -46,9 +48,14 @@
       <p>Place: Click Grid</p>
       <p>Aim: 360° Joystick (Arrows also work)</p>
       <p>Restart: R</p>
+      <button id="restartBtn" class="btn" aria-label="Restart game">Restart</button>
     </section>
   </main>
 
-  <script src="script.js"></script>
+  <noscript>
+    <div style="position:fixed;inset:0;display:grid;place-items:center;background:rgba(0,0,0,0.6);color:white;padding:1rem;">This game requires JavaScript. Please enable scripts to play.</div>
+  </noscript>
+
+  <script type="module" src="script.js"></script>
 </body>
 </html>

@@ -7,6 +7,7 @@
   --accent: #ffd166;
   --cyan: #67d6ff;
   --rose: #ff8e8e;
+  --focus: rgba(103, 214, 255, 0.35);
 }
 
 * {
@@ -123,6 +124,32 @@ canvas {
   position: relative;
   touch-action: none;
   user-select: none;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 209, 102, 0.12);
+  color: var(--text);
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Visible keyboard focus for interactive elements */
+canvas:focus,
+.joystick:focus,
+.btn:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .joystick-ring {

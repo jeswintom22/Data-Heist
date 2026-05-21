@@ -1,0 +1,13 @@
+{
+  "name": "data-heist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Small turn-based canvas game",
+  "scripts": {
+    "start": "npx serve . --single",
+    "test": "echo \"Open test.html in a browser to run tests\"",
+    "lint": "echo \"No linter configured. Install eslint if desired.\""
+  },
+  "author": "",
+  "license": "MIT"
+}

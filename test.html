@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Data Heist — Core Tests</title>
+    <style>body{font-family:Segoe UI,Arial;background:#07131b;color:#e9f1f6;padding:1rem} .pass{color:#7ef08a} .fail{color:#ff8b8b}</style>
+  </head>
+  <body>
+    <h2>Core Module Tests</h2>
+    <ul id="results"></ul>
+
+    <script type="module">
+      import { angleToLabel, getZoneForRound, isInsideZoneCell } from './src/core.js';
+
+      const results = document.getElementById('results');
+      function assert(cond, name) {
+        const li = document.createElement('li');
+        li.textContent = name;
+        li.className = cond ? 'pass' : 'fail';
+        results.appendChild(li);
+        return cond;
+      }
+
+      // Test angleToLabel
+      assert(angleToLabel(0) === '0°', 'angleToLabel 0 rad -> 0°');
+      assert(angleToLabel(Math.PI / 2) === '90°', 'angleToLabel PI/2 -> 90°');
+      assert(angleToLabel(null) === 'None', 'angleToLabel null -> None');
+
+      // Test getZoneForRound
+      const z1 = getZoneForRound(1, 10);
+      assert(z1.size === 10 && z1.left === 0, 'zone round 1 full size');
+      const z3 = getZoneForRound(3, 10);
+      assert(z3.size === 6 && z3.left === 2, 'zone round 3 inset');
+
+      // Test isInsideZoneCell
+      assert(isInsideZoneCell(2,2,z3) === true, 'isInsideZoneCell inside');
+      assert(isInsideZoneCell(0,0,z3) === false, 'isInsideZoneCell outside');
+
+      const done = document.createElement('li');
+      done.textContent = 'Open devtools console for details.';
+      results.appendChild(done);
+    </script>
+  </body>
+</html>

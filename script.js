@@ -1,7 +1,10 @@
+import { angleToLabel, randomAngle, getZoneForRound, isInsideZoneCell, getRayEnd } from "./src/core.js";
+
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const joystickEl = document.getElementById("joystick");
 const joystickStickEl = document.getElementById("joystickStick");
+const restartBtn = document.getElementById("restartBtn");
 
 const roundEl = document.getElementById("round");
 const survivorsEl = document.getElementById("survivors");
@@ -56,7 +59,7 @@ let resolutionActors = [];
 let playerPlacementLocked = false;
 let lastPlayerCell = null;
 let joystickPointerActive = false;
-let activeZone = getZoneForRound(1);
+let activeZone = getZoneForRound(1, GRID_SIZE);
 let playerRoundKills = 0;
 let lastRoundEliminatedCount = 0;
 let lastTime = 0;
@@ -75,25 +78,7 @@ function createEntity(id, label, color, isPlayerEntity) {
   };
 }
 
-function randomAngle() {
-  return Math.random() * Math.PI * 2;
-}
-
-function getZoneForRound(round) {
-  const inset = Math.min(round - 1, MAX_ZONE_INSET);
-  return {
-    inset,
-    left: inset,
-    top: inset,
-    right: GRID_SIZE - 1 - inset,
-    bottom: GRID_SIZE - 1 - inset,
-    size: GRID_SIZE - inset * 2
-  };
-}
-
-function isInsideZoneCell(x, y, zone) {
-  return x >= zone.left && x <= zone.right && y >= zone.top && y <= zone.bottom;
-}
+// helper functions are imported from src/core.js
 
 function isSamePosition(a, b) {
   return a.x === b.x && a.y === b.y;
@@ -141,7 +126,7 @@ function beginPlanningPhase() {
   playerPlacementLocked = false;
   playerRoundKills = 0;
   lastRoundEliminatedCount = 0;
-  activeZone = getZoneForRound(roundNumber);
+  activeZone = getZoneForRound(roundNumber, GRID_SIZE);
 
   const usedCells = new Set();
   const aliveBots = bots.filter((bot) => bot.alive);
@@ -234,38 +219,7 @@ function finalizePlayerPlacement() {
   playerPlacementLocked = true;
 }
 
-function getRayEnd(shooter, angle, zone) {
-  const startX = shooter.x + 0.5;
-  const startY = shooter.y + 0.5;
-  const ux = Math.cos(angle);
-  const uy = Math.sin(angle);
-
-  const possible = [];
-  if (ux > 0) {
-    possible.push((zone.right + 1 - startX) / ux);
-  } else if (ux < 0) {
-    possible.push((zone.left - startX) / ux);
-  }
-
-  if (uy > 0) {
-    possible.push((zone.bottom + 1 - startY) / uy);
-  } else if (uy < 0) {
-    possible.push((zone.top - startY) / uy);
-  }
-
-  const positive = possible.filter((value) => value > 0);
-  const t = Math.min(...positive);
-
-  return {
-    startX,
-    startY,
-    ux,
-    uy,
-    maxDistance: t,
-    endX: startX + ux * t,
-    endY: startY + uy * t
-  };
-}
+// getRayEnd is provided by src/core.js
 
 function buildFireLinesFromActors(actors) {
   const lines = [];
@@ -426,7 +380,7 @@ function restartGame() {
   player.selectedAngle = null;
   playerRoundKills = 0;
   lastRoundEliminatedCount = 0;
-  activeZone = getZoneForRound(1);
+  activeZone = getZoneForRound(1, GRID_SIZE);
   setupEntities();
   beginPlanningPhase();
 }
@@ -714,6 +668,35 @@ window.addEventListener("keydown", (event) => {
   if (CARDINAL_ANGLES[key] !== undefined) {
     event.preventDefault();
     player.selectedAngle = CARDINAL_ANGLES[key];
+    updateUI();
+  }
+});
+
+// Restart button (click/tap)
+if (restartBtn) {
+  restartBtn.addEventListener("click", () => {
+    restartGame();
+    // return focus to canvas for keyboard players
+    canvas.focus();
+  });
+}
+
+// Allow keyboard control when joystick element is focused.
+joystickEl.addEventListener("keydown", (e) => {
+  if (gameState !== "planning" || !player.alive) return;
+
+  const k = e.key;
+  if (CARDINAL_ANGLES[k] !== undefined) {
+    e.preventDefault();
+    player.selectedAngle = CARDINAL_ANGLES[k];
+    updateUI();
+    return;
+  }
+
+  if (k === " " || k === "Spacebar" || k === "Enter") {
+    e.preventDefault();
+    playerPlacementLocked = true;
+    lastPlayerCell = { x: player.x, y: player.y };
     updateUI();
   }
 });
