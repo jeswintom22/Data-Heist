@@ -5,9 +5,33 @@
   "description": "Small turn-based canvas game",
   "scripts": {
     "start": "npx serve . --single",
-    "test": "echo \"Open test.html in a browser to run tests\"",
-    "lint": "echo \"No linter configured. Install eslint if desired.\""
+    "test": "vitest",
+    "lint": "eslint . --ext .js",
+    "format": "prettier --write .",
+    "prepare": ""
   },
+  "devDependencies": {
+    "eslint": "^8.50.0",
+    "eslint-config-prettier": "^8.10.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.6.0",
+    "vitest": "^0.34.1",
+    "husky": "^8.0.0",
+    "lint-staged": "^14.0.0"
+  },
+  "lint-staged": {
+    "*.js": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.css": [
+      "prettier --write"
+    ],
+    "*.html": [
+      "prettier --write"
+    ]
+  },
+  "prepare": "husky install",
   "author": "",
   "license": "MIT"
 }

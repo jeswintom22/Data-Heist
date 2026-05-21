@@ -15,7 +15,7 @@ export function buildFireLinesFromActors(actors, activeZone) {
       shooterId: shooter.id,
       shooterColor: shooter.color,
       angle: shooter.selectedAngle,
-      ...ray
+      ...ray,
     });
   });
 

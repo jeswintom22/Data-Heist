@@ -1,6 +1,6 @@
 // Lightweight pure helpers extracted for testing and reuse
 export function angleToLabel(angle) {
-  if (angle === null || angle === undefined) return "None";
+  if (angle === null || angle === undefined) return 'None';
   const degrees = ((angle * 180) / Math.PI + 360) % 360;
   return `${degrees.toFixed(0)}°`;
 }
@@ -18,7 +18,7 @@ export function getZoneForRound(round, gridSize = 10) {
     top: inset,
     right: gridSize - 1 - inset,
     bottom: gridSize - 1 - inset,
-    size: gridSize - inset * 2
+    size: gridSize - inset * 2,
   };
 }
 
@@ -55,6 +55,6 @@ export function getRayEnd(shooter, angle, zone) {
     uy,
     maxDistance: t,
     endX: startX + ux * t,
-    endY: startY + uy * t
+    endY: startY + uy * t,
   };
 }

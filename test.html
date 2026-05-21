@@ -3,7 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <title>Data Heist — Core Tests</title>
-    <style>body{font-family:Segoe UI,Arial;background:#07131b;color:#e9f1f6;padding:1rem} .pass{color:#7ef08a} .fail{color:#ff8b8b}</style>
+    <style>
+      body {
+        font-family:
+          Segoe UI,
+          Arial;
+        background: #07131b;
+        color: #e9f1f6;
+        padding: 1rem;
+      }
+      .pass {
+        color: #7ef08a;
+      }
+      .fail {
+        color: #ff8b8b;
+      }
+    </style>
   </head>
   <body>
     <h2>Core Module Tests</h2>
@@ -33,8 +48,8 @@
       assert(z3.size === 6 && z3.left === 2, 'zone round 3 inset');
 
       // Test isInsideZoneCell
-      assert(isInsideZoneCell(2,2,z3) === true, 'isInsideZoneCell inside');
-      assert(isInsideZoneCell(0,0,z3) === false, 'isInsideZoneCell outside');
+      assert(isInsideZoneCell(2, 2, z3) === true, 'isInsideZoneCell inside');
+      assert(isInsideZoneCell(0, 0, z3) === false, 'isInsideZoneCell outside');
 
       const done = document.createElement('li');
       done.textContent = 'Open devtools console for details.';

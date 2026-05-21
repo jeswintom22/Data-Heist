@@ -1,20 +1,26 @@
-import { angleToLabel, randomAngle, getZoneForRound, isInsideZoneCell, getRayEnd } from "./src/core.js";
+import { angleToLabel, randomAngle, getZoneForRound, isInsideZoneCell } from './src/core.js';
+import {
+  buildFireLinesFromActors,
+  resolveHits,
+  chooseWinnerByPoints,
+  HIT_RADIUS,
+} from './src/gameLogic.js';
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const joystickEl = document.getElementById("joystick");
-const joystickStickEl = document.getElementById("joystickStick");
-const restartBtn = document.getElementById("restartBtn");
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const joystickEl = document.getElementById('joystick');
+const joystickStickEl = document.getElementById('joystickStick');
+const restartBtn = document.getElementById('restartBtn');
 
-const roundEl = document.getElementById("round");
-const survivorsEl = document.getElementById("survivors");
-const zoneEl = document.getElementById("zone");
-const timerEl = document.getElementById("timer");
-const aimEl = document.getElementById("aim");
-const scoreEl = document.getElementById("score");
-const roundKillsEl = document.getElementById("roundKills");
-const roundElimsEl = document.getElementById("roundElims");
-const statusEl = document.getElementById("status");
+const roundEl = document.getElementById('round');
+const survivorsEl = document.getElementById('survivors');
+const zoneEl = document.getElementById('zone');
+const timerEl = document.getElementById('timer');
+const aimEl = document.getElementById('aim');
+const scoreEl = document.getElementById('score');
+const roundKillsEl = document.getElementById('roundKills');
+const roundElimsEl = document.getElementById('roundElims');
+const statusEl = document.getElementById('status');
 
 const GRID_SIZE = 10;
 const TILE_SIZE = canvas.width / GRID_SIZE;
@@ -22,33 +28,29 @@ const BOT_COUNT = 4;
 const PLANNING_DURATION = 10;
 const RESOLUTION_DURATION = 1.3;
 const FIRE_ANIMATION_DURATION = 0.95;
-const HIT_RADIUS = 0.34;
-const MAX_ZONE_INSET = Math.floor((GRID_SIZE - 4) / 2);
-
-// 2D array grid. It keeps the fixed board dimensions for rendering.
-const grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(0));
+// grid data kept in rendering logic when needed
 
 const CARDINAL_ANGLES = {
   ArrowUp: -Math.PI / 2,
   ArrowDown: Math.PI / 2,
   ArrowLeft: Math.PI,
-  ArrowRight: 0
+  ArrowRight: 0,
 };
 
 const player = {
-  id: "player",
-  label: "You",
+  id: 'player',
+  label: 'You',
   x: 0,
   y: 0,
-  color: "#69d6ff",
+  color: '#69d6ff',
   isPlayer: true,
   alive: true,
   selectedAngle: null,
-  score: 0
+  score: 0,
 };
 
 let bots = [];
-let gameState = "planning"; // "planning" | "resolution" | "gameover"
+let gameState = 'planning'; // "planning" | "resolution" | "gameover"
 let winner = null;
 let roundNumber = 1;
 let phaseTimer = PLANNING_DURATION;
@@ -74,21 +76,18 @@ function createEntity(id, label, color, isPlayerEntity) {
     y: 0,
     alive: true,
     selectedAngle: null,
-    score: 0
+    score: 0,
   };
 }
 
 // helper functions are imported from src/core.js
 
-function isSamePosition(a, b) {
-  return a.x === b.x && a.y === b.y;
-}
-
 function randomFreeCell(usedCells, zone) {
-  while (true) {
+  const maxAttempts = Math.max(zone.size * zone.size * 2, 200);
+  for (let i = 0; i < maxAttempts; i += 1) {
     const candidate = {
       x: zone.left + Math.floor(Math.random() * zone.size),
-      y: zone.top + Math.floor(Math.random() * zone.size)
+      y: zone.top + Math.floor(Math.random() * zone.size),
     };
     const key = `${candidate.x},${candidate.y}`;
     if (!usedCells.has(key)) {
@@ -96,6 +95,18 @@ function randomFreeCell(usedCells, zone) {
       return candidate;
     }
   }
+  // Fallback: linear scan
+  for (let y = zone.top; y <= zone.right; y += 1) {
+    for (let x = zone.left; x <= zone.right; x += 1) {
+      const key = `${x},${y}`;
+      if (!usedCells.has(key)) {
+        usedCells.add(key);
+        return { x, y };
+      }
+    }
+  }
+  // As a final fallback (shouldn't happen), return the top-left of the zone
+  return { x: zone.left, y: zone.top };
 }
 
 function setupEntities() {
@@ -109,7 +120,7 @@ function setupEntities() {
 
   bots = [];
   for (let i = 0; i < BOT_COUNT; i += 1) {
-    const bot = createEntity(`bot-${i + 1}`, `Bot ${i + 1}`, "#ff8f8f", false);
+    const bot = createEntity(`bot-${i + 1}`, `Bot ${i + 1}`, '#ff8f8f', false);
     bots.push(bot);
   }
 }
@@ -119,7 +130,7 @@ function aliveEntities() {
 }
 
 function beginPlanningPhase() {
-  gameState = "planning";
+  gameState = 'planning';
   phaseTimer = PLANNING_DURATION;
   fireLines = [];
   resolutionActors = [];
@@ -143,7 +154,10 @@ function beginPlanningPhase() {
     player.y = lastPlayerCell.y;
   }
 
-  if (!isInsideZoneCell(player.x, player.y, activeZone) || isCellBlockedByAliveBot(player.x, player.y)) {
+  if (
+    !isInsideZoneCell(player.x, player.y, activeZone) ||
+    isCellBlockedByAliveBot(player.x, player.y)
+  ) {
     const suggestedCell = randomFreeCell(usedCells, activeZone);
     player.x = suggestedCell.x;
     player.y = suggestedCell.y;
@@ -160,7 +174,7 @@ function beginPlanningPhase() {
 function beginResolutionPhase(nowSeconds) {
   finalizePlayerPlacement();
 
-  gameState = "resolution";
+  gameState = 'resolution';
   phaseTimer = RESOLUTION_DURATION;
 
   // Snapshot actors for this phase so shooter boxes stay visible during beam animation.
@@ -171,11 +185,11 @@ function beginResolutionPhase(nowSeconds) {
     isPlayer: entity.isPlayer,
     x: entity.x,
     y: entity.y,
-    selectedAngle: entity.selectedAngle
+    selectedAngle: entity.selectedAngle,
   }));
 
-  fireLines = buildFireLinesFromActors(resolutionActors);
-  const result = resolveHits(resolutionActors, fireLines);
+  fireLines = buildFireLinesFromActors(resolutionActors, activeZone);
+  const result = resolveHits(resolutionActors, fireLines, HIT_RADIUS);
   playerRoundKills = result.playerKills;
   lastRoundEliminatedCount = result.eliminatedCount;
   showFireStart = nowSeconds;
@@ -219,153 +233,39 @@ function finalizePlayerPlacement() {
   playerPlacementLocked = true;
 }
 
-// getRayEnd is provided by src/core.js
-
-function buildFireLinesFromActors(actors) {
-  const lines = [];
-
-  actors.forEach((shooter) => {
-    if (shooter.selectedAngle === null) {
-      return;
-    }
-
-    const ray = getRayEnd(shooter, shooter.selectedAngle, activeZone);
-    lines.push({
-      shooterId: shooter.id,
-      shooterColor: shooter.color,
-      angle: shooter.selectedAngle,
-      ...ray
-    });
-  });
-
-  return lines;
-}
-
-function getEntityById(id) {
-  if (id === player.id) {
-    return player;
-  }
-  return bots.find((bot) => bot.id === id) || null;
-}
-
-// Line-of-fire detection for any direction using distance-to-ray math.
-// Also awards 1 score point per unique target hit.
-function resolveHits(actors, lines) {
-  const victims = new Set();
-  const killsByShooter = new Map();
-
-  lines.forEach((line) => {
-    if (!killsByShooter.has(line.shooterId)) {
-      killsByShooter.set(line.shooterId, new Set());
-    }
-
-    actors.forEach((target) => {
-      if (target.id === line.shooterId) {
-        return;
-      }
-
-      const tx = target.x + 0.5;
-      const ty = target.y + 0.5;
-      const dx = tx - line.startX;
-      const dy = ty - line.startY;
-
-      const forward = dx * line.ux + dy * line.uy;
-      if (forward <= 0 || forward > line.maxDistance) {
-        return;
-      }
-
-      const perpendicular = Math.abs(dx * line.uy - dy * line.ux);
-      if (perpendicular <= HIT_RADIUS) {
-        victims.add(target.id);
-        killsByShooter.get(line.shooterId).add(target.id);
-      }
-    });
-  });
-
-  killsByShooter.forEach((kills, shooterId) => {
-    const shooter = getEntityById(shooterId);
-    if (shooter) {
-      shooter.score += kills.size;
-    }
-  });
-
-  const playerKills = killsByShooter.has(player.id) ? killsByShooter.get(player.id).size : 0;
-
-  let eliminatedCount = 0;
-  [player, ...bots].forEach((entity) => {
-    if (victims.has(entity.id)) {
-      entity.alive = false;
-      eliminatedCount += 1;
-    }
-  });
-
-  return {
-    playerKills,
-    eliminatedCount
-  };
-}
-
-function chooseWinnerByPoints() {
-  const allEntities = [player, ...bots];
-  let best = allEntities[0];
-
-  for (let i = 1; i < allEntities.length; i += 1) {
-    const candidate = allEntities[i];
-    if (candidate.score > best.score) {
-      best = candidate;
-    }
-  }
-
-  const topScorers = allEntities.filter((entity) => entity.score === best.score);
-  if (topScorers.some((entity) => entity.id === player.id)) {
-    return player;
-  }
-
-  return topScorers.sort((a, b) => a.id.localeCompare(b.id))[0] || null;
-}
-
 function updateWinnerIfFinished() {
   const survivors = aliveEntities();
 
   if (!player.alive && survivors.length > 1) {
-    gameState = "gameover";
+    gameState = 'gameover';
     winner = null;
     return;
   }
 
   if (survivors.length === 1) {
-    gameState = "gameover";
+    gameState = 'gameover';
     winner = survivors[0];
     return;
   }
 
   if (survivors.length === 0) {
-    gameState = "gameover";
-    winner = chooseWinnerByPoints();
+    gameState = 'gameover';
+    winner = chooseWinnerByPoints([player, ...bots]);
   }
 }
-
-function angleToLabel(angle) {
-  if (angle === null) {
-    return "None";
-  }
-  const degrees = ((angle * 180) / Math.PI + 360) % 360;
-  return `${degrees.toFixed(0)}°`;
-}
-
 // Phase management and timer logic are handled here.
 function updatePhase(deltaSeconds, nowSeconds) {
-  if (gameState === "gameover") {
+  if (gameState === 'gameover') {
     return;
   }
 
   phaseTimer -= deltaSeconds;
 
-  if (gameState === "planning" && phaseTimer <= 0) {
+  if (gameState === 'planning' && phaseTimer <= 0) {
     beginResolutionPhase(nowSeconds);
-  } else if (gameState === "resolution" && phaseTimer <= 0) {
+  } else if (gameState === 'resolution' && phaseTimer <= 0) {
     updateWinnerIfFinished();
-    if (gameState !== "gameover") {
+    if (gameState !== 'gameover') {
       roundNumber += 1;
       beginPlanningPhase();
     }
@@ -395,14 +295,14 @@ function updateUI() {
   roundKillsEl.textContent = String(playerRoundKills);
   roundElimsEl.textContent = String(lastRoundEliminatedCount);
 
-  if (gameState === "planning") {
+  if (gameState === 'planning') {
     if (!playerPlacementLocked) {
-      statusEl.textContent = "Planning (10s): choose your tile, then set any aim angle.";
+      statusEl.textContent = 'Planning (10s): choose your tile, then set any aim angle.';
     } else {
-      statusEl.textContent = "Planning (10s): placement locked, fine-tune 360° aim.";
+      statusEl.textContent = 'Planning (10s): placement locked, fine-tune 360° aim.';
     }
-  } else if (gameState === "resolution") {
-    statusEl.textContent = "Resolution: beams fired.";
+  } else if (gameState === 'resolution') {
+    statusEl.textContent = 'Resolution: beams fired.';
   } else if (!player.alive && winner !== player) {
     statusEl.textContent = `Game Over! You were eliminated. Score: ${player.score}. Press R to restart.`;
   } else if (winner && winner.id === player.id) {
@@ -420,22 +320,18 @@ function drawGrid() {
   for (let y = 0; y < GRID_SIZE; y += 1) {
     for (let x = 0; x < GRID_SIZE; x += 1) {
       const insideZone = isInsideZoneCell(x, y, zone);
-      const color = insideZone
-        ? (x + y) % 2 === 0
-          ? "#0f2d43"
-          : "#143850"
-        : "#07111b";
+      const color = insideZone ? ((x + y) % 2 === 0 ? '#0f2d43' : '#143850') : '#07111b';
 
       ctx.fillStyle = color;
       ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
-      ctx.strokeStyle = insideZone ? "#215673" : "#0d1a27";
+      ctx.strokeStyle = insideZone ? '#215673' : '#0d1a27';
       ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
   }
 
   ctx.save();
-  ctx.strokeStyle = "#7de0ff";
+  ctx.strokeStyle = '#7de0ff';
   ctx.lineWidth = 3;
   ctx.strokeRect(
     zone.left * TILE_SIZE + 1.5,
@@ -458,7 +354,7 @@ function drawEntity(entity) {
 }
 
 function drawPlanningPlacementPreview() {
-  if (gameState !== "planning" || !player.alive) {
+  if (gameState !== 'planning' || !player.alive) {
     return;
   }
 
@@ -466,11 +362,11 @@ function drawPlanningPlacementPreview() {
   const y = player.y * TILE_SIZE;
 
   ctx.save();
-  ctx.strokeStyle = playerPlacementLocked ? "#93e5ff" : "#ffd166";
+  ctx.strokeStyle = playerPlacementLocked ? '#93e5ff' : '#ffd166';
   ctx.lineWidth = 3;
   ctx.strokeRect(x + 4, y + 4, TILE_SIZE - 8, TILE_SIZE - 8);
   ctx.globalAlpha = playerPlacementLocked ? 0.2 : 0.28;
-  ctx.fillStyle = playerPlacementLocked ? "#67d6ff" : "#ffd166";
+  ctx.fillStyle = playerPlacementLocked ? '#67d6ff' : '#ffd166';
   ctx.fillRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10);
   ctx.restore();
 }
@@ -487,7 +383,7 @@ function drawAimIndicator(entity) {
   const tipY = centerY + Math.sin(entity.selectedAngle) * len;
 
   ctx.save();
-  ctx.strokeStyle = entity.isPlayer ? "#89d6ff" : "#ffb5b5";
+  ctx.strokeStyle = entity.isPlayer ? '#89d6ff' : '#ffb5b5';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(centerX, centerY);
@@ -514,7 +410,7 @@ function drawFireLines(nowSeconds) {
     const tipY = startPxY + (endPxY - startPxY) * progress;
 
     // Soft outer glow beam.
-    ctx.strokeStyle = "rgb(255 215 104 / 0.24)";
+    ctx.strokeStyle = 'rgb(255 215 104 / 0.24)';
     ctx.lineWidth = 8;
     ctx.beginPath();
     ctx.moveTo(startPxX, startPxY);
@@ -522,7 +418,7 @@ function drawFireLines(nowSeconds) {
     ctx.stroke();
 
     // Bright core beam.
-    ctx.strokeStyle = "rgb(255 246 198 / 0.95)";
+    ctx.strokeStyle = 'rgb(255 246 198 / 0.95)';
     ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.moveTo(startPxX, startPxY);
@@ -552,12 +448,12 @@ function drawFireLines(nowSeconds) {
 }
 
 function drawEntities(nowSeconds) {
-  if (gameState === "planning") {
+  if (gameState === 'planning') {
     drawPlanningPlacementPreview();
     return;
   }
 
-  if (gameState === "resolution") {
+  if (gameState === 'resolution') {
     // Draw the actors from shot start so boxes do not disappear mid-animation.
     resolutionActors.forEach((entity) => {
       drawEntity(entity);
@@ -593,7 +489,7 @@ function isCellBlockedByAliveBot(x, y) {
 }
 
 function setPlayerPlacementFromCell(cell) {
-  if (!cell || gameState !== "planning" || !player.alive) {
+  if (!cell || gameState !== 'planning' || !player.alive) {
     return;
   }
 
@@ -609,8 +505,8 @@ function setPlayerPlacementFromCell(cell) {
 }
 
 function resetJoystickStick() {
-  joystickStickEl.style.left = "50%";
-  joystickStickEl.style.top = "50%";
+  joystickStickEl.style.left = '50%';
+  joystickStickEl.style.top = '50%';
 }
 
 function setDirectionFromJoystickPoint(clientX, clientY) {
@@ -653,15 +549,15 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
-window.addEventListener("keydown", (event) => {
+window.addEventListener('keydown', (event) => {
   const key = event.key;
 
-  if (key.toLowerCase() === "r") {
+  if (key.toLowerCase() === 'r') {
     restartGame();
     return;
   }
 
-  if (gameState !== "planning" || !player.alive) {
+  if (gameState !== 'planning' || !player.alive) {
     return;
   }
 
@@ -674,7 +570,7 @@ window.addEventListener("keydown", (event) => {
 
 // Restart button (click/tap)
 if (restartBtn) {
-  restartBtn.addEventListener("click", () => {
+  restartBtn.addEventListener('click', () => {
     restartGame();
     // return focus to canvas for keyboard players
     canvas.focus();
@@ -682,8 +578,8 @@ if (restartBtn) {
 }
 
 // Allow keyboard control when joystick element is focused.
-joystickEl.addEventListener("keydown", (e) => {
-  if (gameState !== "planning" || !player.alive) return;
+joystickEl.addEventListener('keydown', (e) => {
+  if (gameState !== 'planning' || !player.alive) return;
 
   const k = e.key;
   if (CARDINAL_ANGLES[k] !== undefined) {
@@ -693,7 +589,7 @@ joystickEl.addEventListener("keydown", (e) => {
     return;
   }
 
-  if (k === " " || k === "Spacebar" || k === "Enter") {
+  if (k === ' ' || k === 'Spacebar' || k === 'Enter') {
     e.preventDefault();
     playerPlacementLocked = true;
     lastPlayerCell = { x: player.x, y: player.y };
@@ -701,13 +597,13 @@ joystickEl.addEventListener("keydown", (e) => {
   }
 });
 
-canvas.addEventListener("pointerdown", (event) => {
+canvas.addEventListener('pointerdown', (event) => {
   const cell = getCanvasGridCell(event.clientX, event.clientY);
   setPlayerPlacementFromCell(cell);
 });
 
-joystickEl.addEventListener("pointerdown", (event) => {
-  if (gameState !== "planning" || !player.alive) {
+joystickEl.addEventListener('pointerdown', (event) => {
+  if (gameState !== 'planning' || !player.alive) {
     return;
   }
 
@@ -716,8 +612,8 @@ joystickEl.addEventListener("pointerdown", (event) => {
   setDirectionFromJoystickPoint(event.clientX, event.clientY);
 });
 
-joystickEl.addEventListener("pointermove", (event) => {
-  if (!joystickPointerActive || gameState !== "planning" || !player.alive) {
+joystickEl.addEventListener('pointermove', (event) => {
+  if (!joystickPointerActive || gameState !== 'planning' || !player.alive) {
     return;
   }
 
@@ -730,14 +626,14 @@ function stopJoystickPointer(event) {
   }
 
   joystickPointerActive = false;
-  if (typeof event.pointerId === "number") {
+  if (typeof event.pointerId === 'number') {
     joystickEl.releasePointerCapture(event.pointerId);
   }
   resetJoystickStick();
 }
 
-joystickEl.addEventListener("pointerup", stopJoystickPointer);
-joystickEl.addEventListener("pointercancel", stopJoystickPointer);
+joystickEl.addEventListener('pointerup', stopJoystickPointer);
+joystickEl.addEventListener('pointercancel', stopJoystickPointer);
 
 restartGame();
 requestAnimationFrame((time) => {
