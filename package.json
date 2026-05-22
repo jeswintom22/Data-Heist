@@ -5,7 +5,7 @@
   "description": "Small turn-based canvas game",
   "scripts": {
     "start": "npx serve . --single",
-    "test": "vitest",
+    "test": "vitest run",
     "lint": "eslint . --ext .js",
     "format": "prettier --write .",
     "prepare": ""

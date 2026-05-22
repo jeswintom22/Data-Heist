@@ -177,16 +177,8 @@ function beginResolutionPhase(nowSeconds) {
   gameState = 'resolution';
   phaseTimer = RESOLUTION_DURATION;
 
-  // Snapshot actors for this phase so shooter boxes stay visible during beam animation.
-  resolutionActors = aliveEntities().map((entity) => ({
-    id: entity.id,
-    label: entity.label,
-    color: entity.color,
-    isPlayer: entity.isPlayer,
-    x: entity.x,
-    y: entity.y,
-    selectedAngle: entity.selectedAngle,
-  }));
+  // Keep live entity references so hits update the real game state during resolution.
+  resolutionActors = aliveEntities();
 
   fireLines = buildFireLinesFromActors(resolutionActors, activeZone);
   const result = resolveHits(resolutionActors, fireLines, HIT_RADIUS);

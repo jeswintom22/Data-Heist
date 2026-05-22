@@ -1,39 +1,57 @@
-# Data-Heist
+# Data Heist
 
-Data Heist is a small browser-based turn-based prediction duel implemented with HTML5 Canvas, vanilla JavaScript, and CSS.
+Data Heist is a compact browser game where you place your unit, choose an angle, and survive the shrinking zone while enemy rays fire across the board.
 
-## How to run
+## Live Demo
 
-- Open `index.html` in a modern browser (Chrome, Edge, Firefox, Safari).
+https://data-heist-xi.vercel.app/
 
-Or run a simple local server (recommended for module support):
+## Tech Stack
+
+- HTML5 Canvas for rendering
+- Vanilla JavaScript using ES modules
+- CSS for layout and game styling
+- Vitest for automated unit tests
+- Vercel for deployment
+
+## Run Locally
+
+1. Install dependencies:
 
 ```powershell
-npx serve .
+npm install
 ```
+
+2. Start the local server:
+
+```powershell
+npm start
+```
+
+3. Open the local URL shown in the terminal.
+
+If you prefer, you can also open `index.html` directly in a browser, but a local server is recommended.
 
 ## Controls
 
-- Click a tile on the grid to set your placement (during the planning phase).
-- Use the on-screen joystick (mouse/touch) or the Arrow keys to set aim.
+- Click a tile on the grid during the planning phase to place your unit.
+- Use the on-screen joystick with mouse or touch, or use the Arrow keys, to set your aim.
 - Press Space or Enter while the joystick is focused to lock placement.
-- Press `R` or click the Restart button to restart the game.
+- Press R or click Restart to begin a new game.
 
-## Improvements made
+## Tests
 
-- Accessibility: canvas is focusable, joystick supports keyboard control, visible focus outlines, and a restart button was added.
-- UX: added a description meta tag and a noscript message for users without JavaScript.
+Run the automated logic tests with:
 
-## Developer utilities
+```powershell
+npm test
+```
 
-- `test.html` — simple browser-based tests for core helpers. Open it in a browser to run.
-- `package.json` — includes `start` script using `serve` (install via `npm i -g serve` or use `npx serve`).
+## Project Layout
 
-## Next suggestions
+- `index.html` is the entry point.
+- `script.js` contains the main game loop and canvas rendering.
+- `src/core.js` contains reusable gameplay helpers.
+- `src/gameLogic.js` contains ray resolution and win logic.
+- `test/gameLogic.test.js` covers the pure game logic.
 
-- Add `eslint` and `prettier` for automated linting/formatting.
-- Extract more pure logic into `src/core.js` for easier unit testing.
-
-## Notes
-
-This is intentionally small and dependency-free. Contributions and suggestions welcome.

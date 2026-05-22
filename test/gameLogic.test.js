@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  buildFireLinesFromActors,
-  resolveHits,
-  chooseWinnerByPoints,
-} from '../../src/gameLogic.js';
-import { getZoneForRound } from '../../src/core.js';
+import { buildFireLinesFromActors, resolveHits, chooseWinnerByPoints } from '../src/gameLogic.js';
+import { getZoneForRound } from '../src/core.js';
 
 describe('gameLogic basic', () => {
   it('builds fire lines and resolves simple hit', () => {
@@ -23,7 +19,10 @@ describe('gameLogic basic', () => {
     const lines = buildFireLinesFromActors(actors, zone);
     expect(lines.length).toBe(1);
     const result = resolveHits(actors, lines);
-    expect(result.eliminatedCount).toBeGreaterThanOrEqual(0);
+    expect(result.eliminatedCount).toBe(1);
+    expect(result.playerKills).toBe(0);
+    expect(target.alive).toBe(false);
+    expect(shooter.score).toBe(1);
   });
 
   it('chooses winner by points', () => {
