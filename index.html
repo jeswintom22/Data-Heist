@@ -3,164 +3,186 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#EFE6D2" />
     <meta
       name="description"
-      content="Data Heist: survive the shrinking zone and outsmart rival data runners."
+      content="Data Heist is a turn-based paper-cut heist game of aim, timing, and survival."
     />
-    <meta name="theme-color" content="#07111b" />
+    <meta property="og:title" content="Data Heist" />
+    <meta property="og:description" content="Plan the shot. Survive the zone. Take the score." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://data-heist-xi.vercel.app/" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <title>DATA//HEIST</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='24' cy='24' r='16' fill='%23E9B22E'/%3E%3Cpath d='M43 10 58 39 35 34Z' fill='%23E8472B'/%3E%3C/svg%3E"
+    />
+    <title>Data Heist</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <main class="game-wrap">
-      <header class="brand-bar">
-        <div>
-          <p class="eyebrow">SECURE CHANNEL // 07</p>
-          <h1>DATA<span>//</span>HEIST</h1>
-        </div>
-        <div class="header-actions">
-          <button id="muteBtn" class="icon-btn" type="button" aria-label="Mute sound">
-            SFX ON
+    <main class="poster-shell">
+      <header class="topline">
+        <p>DH / 1964 / FIELD OPERATIONS</p>
+        <div class="top-actions">
+          <button id="muteBtn" class="text-button" type="button" aria-label="Toggle sound">
+            MUTE ON
           </button>
-          <button id="pauseBtn" class="icon-btn" type="button" aria-label="Pause game">
-            PAUSE
+          <button id="pauseBtn" class="icon-button" type="button" aria-label="Pause game">
+            <span class="pause-icon" aria-hidden="true"></span><b>PAUSE</b>
           </button>
         </div>
       </header>
 
-      <section class="hud" aria-live="polite">
-        <p class="stat-chip">
-          <span class="chip-icon">R</span
-          ><span><small>ROUND</small><strong id="round">1</strong></span>
-        </p>
-        <p class="stat-chip">
-          <span class="chip-icon">+</span
-          ><span><small>SURVIVORS</small><strong id="survivors">0</strong></span>
-        </p>
-        <p class="stat-chip">
-          <span class="chip-icon">Z</span
-          ><span><small>ZONE</small><strong id="zone">10x10</strong></span>
-        </p>
-        <p class="stat-chip score-chip">
-          <span class="chip-icon">$</span
-          ><span><small>SCORE</small><strong id="score">0</strong></span>
-        </p>
+      <section class="play-layout" aria-label="Data Heist game">
+        <div class="board-column">
+          <div class="board-heading">
+            <p class="kicker">THE JOB / LIVE</p>
+            <h1>DATA<br /><em>HEIST</em></h1>
+          </div>
+          <div class="canvas-frame">
+            <canvas
+              id="gameCanvas"
+              width="480"
+              height="480"
+              tabindex="0"
+              aria-label="Data Heist board. Place your circle, aim, and survive."
+              role="img"
+            ></canvas>
+            <div id="killFeed" class="kill-feed" aria-live="polite"></div>
+            <div id="roundCard" class="round-card" aria-live="assertive" aria-hidden="true"></div>
+          </div>
+          <div class="phase-strip" aria-live="polite">
+            <span id="phaseLabel">READY</span>
+            <span id="status">PLAN THE JOB</span>
+          </div>
+        </div>
+
+        <aside class="score-column" aria-label="Game statistics">
+          <div class="stat-block stat-round"><span>ROUND</span><strong id="round">1</strong></div>
+          <div class="stat-block"><span>SURVIVORS</span><strong id="survivors">0</strong></div>
+          <div class="stat-block stat-score"><span>SCORE</span><strong id="score">0</strong></div>
+          <div class="zone-note"><span>ZONE</span><b id="zone">10x10</b></div>
+          <div class="timer-panel">
+            <span>TIME LEFT</span><strong id="timer">10.0</strong>
+            <div class="timer-track"><div id="timerBar" class="timer-bar"></div></div>
+          </div>
+          <div class="aim-panel">
+            <span>AIM VECTOR</span><strong id="aim">000°</strong
+            ><i id="compass" aria-label="Aim compass">N</i>
+          </div>
+          <button id="readyBtn" class="block-button mustard-button" type="button">
+            LOCK IN <span aria-hidden="true">-></span>
+          </button>
+        </aside>
       </section>
 
-      <section class="hud hud-secondary" aria-live="polite">
-        <div class="phase-readout">
-          <span id="phaseLabel">PLANNING</span
-          ><span id="status">Choose a tile and set your vector.</span>
+      <section class="controls-row" aria-label="Aim controls">
+        <div class="control-copy">
+          <span>PLACE / CLICK A TILE</span><span>AIM / DRAG FROM YOU</span
+          ><span>KEYS / ARROWS + R + P + M</span>
         </div>
-        <div class="timer-wrap" aria-label="Planning countdown">
-          <span id="timer">10.0</span>
-          <div class="timer-track"><div id="timerBar" class="timer-bar"></div></div>
+        <div class="joystick-wrap">
+          <p>OPTIONAL VECTOR CONTROL</p>
+          <div
+            id="joystick"
+            class="joystick"
+            tabindex="0"
+            role="application"
+            aria-label="Aim joystick"
+          >
+            <span class="joystick-cross" aria-hidden="true"></span
+            ><span id="joystickStick" class="joystick-stick" aria-hidden="true"></span>
+          </div>
         </div>
-        <div class="aim-readout">
-          <span>AIM</span><strong id="aim">000°</strong><span class="compass" id="compass">N</span>
-        </div>
-      </section>
-
-      <canvas
-        id="gameCanvas"
-        width="480"
-        height="480"
-        tabindex="0"
-        aria-label="Grid stealth game"
-        role="img"
-      ></canvas>
-
-      <div id="killFeed" class="kill-feed" aria-live="polite"></div>
-      <div id="roundBanner" class="round-banner" aria-hidden="true"></div>
-
-      <section class="joystick-wrap" aria-label="Aim joystick">
-        <p class="joystick-label">VECTOR CONTROL <span>DRAG / ARROWS</span></p>
-        <div id="joystick" class="joystick" role="application" aria-label="Direction joystick">
-          <div class="joystick-ring"></div>
-          <div class="joystick-cross"></div>
-          <div id="joystickStick" class="joystick-stick"></div>
-        </div>
-      </section>
-
-      <section class="help">
-        <p>PLACE <span>CLICK A TILE</span></p>
-        <p>AIM <span>DRAG OR ARROWS</span></p>
-        <button id="readyBtn" class="btn btn-primary" type="button">LOCK IN <span>↵</span></button>
-        <button id="restartBtn" class="btn" type="button" aria-label="Restart game">RESTART</button>
+        <button id="restartBtn" class="block-button ink-button" type="button">
+          RESTART <span aria-hidden="true">R</span>
+        </button>
       </section>
     </main>
 
-    <section id="startScreen" class="screen-layer active" aria-labelledby="startTitle">
-      <div class="screen-panel start-panel">
-        <p class="eyebrow">INCOMING TRANSMISSION</p>
-        <h2 id="startTitle">STEAL THE SIGNAL.<br /><span>SURVIVE THE ZONE.</span></h2>
-        <p class="screen-copy">
-          Place your runner. Aim your vector. Every round, the perimeter closes in.
-        </p>
-        <button id="playBtn" class="cta-btn" type="button">INITIALIZE RUN <span>→</span></button>
-        <div class="how-card">
-          <strong>HOW TO PLAY</strong>
-          <ol>
-            <li><b>PLACE</b> a tile inside the zone.</li>
-            <li><b>AIM</b> your beam toward a rival.</li>
-            <li><b>SURVIVE</b> the fire and shrinking perimeter.</li>
-          </ol>
-        </div>
+    <section id="startScreen" class="poster-screen active" aria-labelledby="startTitle">
+      <div class="hero-shape hero-circle" aria-hidden="true"></div>
+      <div class="hero-shape hero-triangle" aria-hidden="true"></div>
+      <div class="title-card">
+        <p class="kicker">A MOTION PICTURE IN THREE MOVES</p>
+        <h2 id="startTitle">DATA<br /><em>HEIST</em></h2>
+        <p class="title-copy">PLAN THE SHOT.<br />SURVIVE THE ZONE.<br />TAKE THE SCORE.</p>
+        <p class="best-line">BEST SCORE <b id="startBestScore">0</b></p>
+        <button id="playBtn" class="block-button vermilion-button" type="button">
+          PLAY <span aria-hidden="true">-></span>
+        </button>
+        <button id="howToBtn" class="link-button" type="button">HOW TO PLAY</button>
       </div>
     </section>
 
-    <section id="tutorialLayer" class="screen-layer" aria-labelledby="tutorialTitle">
-      <div class="screen-panel tutorial-panel">
-        <p class="eyebrow">FIELD GUIDE // <span id="tutorialStep">01</span> / 03</p>
-        <h2 id="tutorialTitle">PLACE YOUR RUNNER</h2>
-        <p id="tutorialCopy">
-          Click any open tile inside the cyan perimeter. Your last position is remembered between
-          rounds.
-        </p>
+    <section
+      id="tutorialLayer"
+      class="poster-screen tutorial-screen"
+      aria-labelledby="tutorialTitle"
+    >
+      <div class="tutorial-card">
+        <p class="kicker">FIELD GUIDE / <span id="tutorialStep">1 / 3</span></p>
+        <h2 id="tutorialTitle">PLACE</h2>
+        <p id="tutorialCopy">Choose an open tile inside the safe zone.</p>
+        <div class="tutorial-diagram diagram-place" aria-hidden="true"><span></span></div>
         <div class="tutorial-progress"><span></span></div>
-        <button id="tutorialNextBtn" class="cta-btn" type="button">NEXT <span>→</span></button>
+        <button id="tutorialNextBtn" class="block-button ink-button" type="button">
+          NEXT <span aria-hidden="true">-></span></button
+        ><button id="tutorialSkipBtn" class="link-button" type="button">SKIP</button>
       </div>
     </section>
 
-    <section id="pauseLayer" class="screen-layer" aria-labelledby="pauseTitle">
-      <div class="screen-panel compact-panel">
-        <p class="eyebrow">SIGNAL FROZEN</p>
-        <h2 id="pauseTitle">PAUSED</h2>
-        <button id="resumeBtn" class="cta-btn" type="button">RESUME <span>→</span></button>
+    <dialog id="howToLayer" class="poster-dialog" aria-labelledby="howToTitle">
+      <div class="dialog-heading">
+        <p class="kicker">THE THREE MOVES</p>
+        <button id="howToClose" class="close-button" type="button" aria-label="Close how to play">
+          X
+        </button>
       </div>
-    </section>
-
-    <section id="resultLayer" class="screen-layer" aria-labelledby="resultTitle">
-      <div class="screen-panel result-panel">
-        <p class="eyebrow" id="resultEyebrow">RUN COMPLETE</p>
-        <h2 id="resultTitle">SIGNAL LOST</h2>
-        <div class="result-stats">
-          <span>SCORE <b id="resultScore">0</b></span
-          ><span>KILLS <b id="resultKills">0</b></span
-          ><span>ROUNDS <b id="resultRounds">0</b></span
-          ><span>BEST <b id="bestScore">0</b></span>
-        </div>
-        <button id="playAgainBtn" class="cta-btn" type="button">PLAY AGAIN <span>→</span></button>
+      <h2 id="howToTitle">HOW TO PLAY</h2>
+      <div class="how-grid">
+        <article>
+          <b>01</b>
+          <h3>PLACE</h3>
+          <p>Pick a clear tile inside the zone.</p>
+        </article>
+        <article>
+          <b>02</b>
+          <h3>AIM</h3>
+          <p>Drag from YOU or use the dial.</p>
+        </article>
+        <article>
+          <b>03</b>
+          <h3>SURVIVE</h3>
+          <p>Lock in before the clock runs out.</p>
+        </article>
       </div>
-    </section>
+    </dialog>
 
-    <noscript>
-      <div
-        style="
-          position: fixed;
-          inset: 0;
-          display: grid;
-          place-items: center;
-          background: rgba(0, 0, 0, 0.6);
-          color: white;
-          padding: 1rem;
-        "
-      >
-        This game requires JavaScript. Please enable scripts to play.
+    <dialog id="pauseLayer" class="poster-dialog compact-dialog" aria-labelledby="pauseTitle">
+      <p class="kicker">THE SIGNAL IS FROZEN</p>
+      <h2 id="pauseTitle">PAUSED</h2>
+      <button id="resumeBtn" class="block-button mustard-button" type="button">RESUME</button
+      ><button id="pauseRestartBtn" class="link-button" type="button">RESTART</button>
+    </dialog>
+
+    <dialog id="resultLayer" class="poster-dialog result-dialog" aria-labelledby="resultTitle">
+      <p id="resultEyebrow" class="kicker">THE JOB WENT SOUTH</p>
+      <h2 id="resultTitle">BUSTED</h2>
+      <div class="result-stats">
+        <span>SCORE <b id="resultScore">0</b></span
+        ><span>KILLS <b id="resultKills">0</b></span
+        ><span>ROUNDS <b id="resultRounds">0</b></span
+        ><span>BEST <b id="bestScore">0</b></span>
       </div>
-    </noscript>
+      <b id="newBest" class="new-best" hidden>NEW BEST</b
+      ><button id="playAgainBtn" class="block-button vermilion-button" type="button">
+        PLAY AGAIN <span aria-hidden="true">-></span>
+      </button>
+    </dialog>
 
+    <noscript><p class="no-script">Data Heist needs JavaScript enabled to run.</p></noscript>
     <script type="module" src="script.js"></script>
   </body>
 </html>
