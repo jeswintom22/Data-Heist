@@ -8,7 +8,7 @@
     "test": "vitest run",
     "lint": "eslint . --ext .js",
     "format": "prettier --write .",
-    "prepare": ""
+    "prepare": "husky install"
   },
   "devDependencies": {
     "eslint": "^8.50.0",
@@ -31,7 +31,6 @@
       "prettier --write"
     ]
   },
-  "prepare": "husky install",
   "author": "",
   "license": "MIT"
 }
