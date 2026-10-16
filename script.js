@@ -1,4 +1,10 @@
-import { angleToLabel, randomAngle, getZoneForRound, isInsideZoneCell } from './src/core.js';
+import {
+  angleToLabel,
+  randomAngle,
+  getRayEnd,
+  getZoneForRound,
+  isInsideZoneCell,
+} from './src/core.js';
 import {
   buildFireLinesFromActors,
   resolveHits,
@@ -11,6 +17,32 @@ const ctx = canvas.getContext('2d');
 const joystickEl = document.getElementById('joystick');
 const joystickStickEl = document.getElementById('joystickStick');
 const restartBtn = document.getElementById('restartBtn');
+const readyBtn = document.getElementById('readyBtn');
+const playBtn = document.getElementById('playBtn');
+const playAgainBtn = document.getElementById('playAgainBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resumeBtn = document.getElementById('resumeBtn');
+const muteBtn = document.getElementById('muteBtn');
+const startScreen = document.getElementById('startScreen');
+const tutorialLayer = document.getElementById('tutorialLayer');
+const tutorialNextBtn = document.getElementById('tutorialNextBtn');
+const pauseLayer = document.getElementById('pauseLayer');
+const resultLayer = document.getElementById('resultLayer');
+const tutorialStepEl = document.getElementById('tutorialStep');
+const tutorialTitleEl = document.getElementById('tutorialTitle');
+const tutorialCopyEl = document.getElementById('tutorialCopy');
+const tutorialProgressEl = document.querySelector('.tutorial-progress span');
+const resultTitleEl = document.getElementById('resultTitle');
+const resultEyebrowEl = document.getElementById('resultEyebrow');
+const resultScoreEl = document.getElementById('resultScore');
+const resultKillsEl = document.getElementById('resultKills');
+const resultRoundsEl = document.getElementById('resultRounds');
+const bestScoreEl = document.getElementById('bestScore');
+const timerBarEl = document.getElementById('timerBar');
+const phaseLabelEl = document.getElementById('phaseLabel');
+const compassEl = document.getElementById('compass');
+const killFeedEl = document.getElementById('killFeed');
+const roundBanner = document.getElementById('roundBanner');
 
 const roundEl = document.getElementById('round');
 const survivorsEl = document.getElementById('survivors');
@@ -23,7 +55,8 @@ const roundElimsEl = document.getElementById('roundElims');
 const statusEl = document.getElementById('status');
 
 const GRID_SIZE = 10;
-const TILE_SIZE = canvas.width / GRID_SIZE;
+const LOGICAL_CANVAS_SIZE = 480;
+const TILE_SIZE = LOGICAL_CANVAS_SIZE / GRID_SIZE;
 const BOT_COUNT = 4;
 const PLANNING_DURATION = 10;
 const RESOLUTION_DURATION = 1.3;
@@ -50,7 +83,7 @@ const player = {
 };
 
 let bots = [];
-let gameState = 'planning'; // "planning" | "resolution" | "gameover"
+let gameState = 'title'; // "title" | "planning" | "resolution" | "gameover"
 let winner = null;
 let roundNumber = 1;
 let phaseTimer = PLANNING_DURATION;
@@ -65,6 +98,32 @@ let activeZone = getZoneForRound(1, GRID_SIZE);
 let playerRoundKills = 0;
 let lastRoundEliminatedCount = 0;
 let lastTime = 0;
+let isPaused = false;
+let muted = false;
+let tutorialStep = 0;
+let resultShown = false;
+let roundKillsTotal = 0;
+let killFeedItems = [];
+let canvasAimPointerActive = false;
+
+const tutorialSteps = [
+  [
+    'PLACE YOUR RUNNER',
+    'Click any open tile inside the cyan perimeter. Your last position is remembered between rounds.',
+  ],
+  [
+    'AIM YOUR VECTOR',
+    'Drag the control or use the arrow keys. The dotted laser shows exactly where your beam will travel.',
+  ],
+  ['SURVIVE THE ZONE', 'Lock in early, watch the danger border, and be the last signal standing.'],
+];
+
+function configureCanvasResolution() {
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = LOGICAL_CANVAS_SIZE * pixelRatio;
+  canvas.height = LOGICAL_CANVAS_SIZE * pixelRatio;
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+}
 
 function createEntity(id, label, color, isPlayerEntity) {
   return {
@@ -168,6 +227,7 @@ function beginPlanningPhase() {
   }
 
   resetJoystickStick();
+  showRoundBanner(`ROUND ${roundNumber} · ZONE ${activeZone.size}×${activeZone.size}`);
   updateUI();
 }
 
@@ -183,7 +243,13 @@ function beginResolutionPhase(nowSeconds) {
   fireLines = buildFireLinesFromActors(resolutionActors, activeZone);
   const result = resolveHits(resolutionActors, fireLines, HIT_RADIUS);
   playerRoundKills = result.playerKills;
+  roundKillsTotal += playerRoundKills;
   lastRoundEliminatedCount = result.eliminatedCount;
+  resolutionActors.forEach((actor) => {
+    if (!actor.alive && actor.id !== 'player' && playerRoundKills > 0) {
+      addKillFeed(`You eliminated ${actor.label}`);
+    }
+  });
   showFireStart = nowSeconds;
   showFireUntil = nowSeconds + FIRE_ANIMATION_DURATION;
 
@@ -231,23 +297,26 @@ function updateWinnerIfFinished() {
   if (!player.alive && survivors.length > 1) {
     gameState = 'gameover';
     winner = null;
+    showResultScreen();
     return;
   }
 
   if (survivors.length === 1) {
     gameState = 'gameover';
     winner = survivors[0];
+    showResultScreen();
     return;
   }
 
   if (survivors.length === 0) {
     gameState = 'gameover';
     winner = chooseWinnerByPoints([player, ...bots]);
+    showResultScreen();
   }
 }
 // Phase management and timer logic are handled here.
 function updatePhase(deltaSeconds, nowSeconds) {
-  if (gameState === 'gameover') {
+  if (gameState === 'title' || gameState === 'gameover' || isPaused) {
     return;
   }
 
@@ -272,9 +341,13 @@ function restartGame() {
   player.selectedAngle = null;
   playerRoundKills = 0;
   lastRoundEliminatedCount = 0;
+  roundKillsTotal = 0;
+  resultShown = false;
+  isPaused = false;
   activeZone = getZoneForRound(1, GRID_SIZE);
   setupEntities();
   beginPlanningPhase();
+  hideAllScreens();
 }
 
 function updateUI() {
@@ -284,8 +357,18 @@ function updateUI() {
   timerEl.textContent = Math.max(0, phaseTimer).toFixed(1);
   aimEl.textContent = angleToLabel(player.selectedAngle);
   scoreEl.textContent = String(player.score);
-  roundKillsEl.textContent = String(playerRoundKills);
-  roundElimsEl.textContent = String(lastRoundEliminatedCount);
+  if (roundKillsEl) roundKillsEl.textContent = String(playerRoundKills);
+  if (roundElimsEl) roundElimsEl.textContent = String(lastRoundEliminatedCount);
+  const planningProgress = Math.max(0, Math.min(1, phaseTimer / PLANNING_DURATION));
+  timerBarEl.style.transform = `scaleX(${gameState === 'planning' ? planningProgress : 1})`;
+  timerBarEl.classList.toggle(
+    'warn',
+    gameState === 'planning' && phaseTimer <= 5 && phaseTimer > 3
+  );
+  timerBarEl.classList.toggle('danger', gameState === 'planning' && phaseTimer <= 3);
+  phaseLabelEl.textContent =
+    gameState === 'resolution' ? 'FIRE!' : gameState === 'planning' ? 'PLANNING' : 'RUN COMPLETE';
+  compassEl.textContent = getCompassLabel(player.selectedAngle);
 
   if (gameState === 'planning') {
     if (!playerPlacementLocked) {
@@ -306,24 +389,84 @@ function updateUI() {
   }
 }
 
+function getCompassLabel(angle) {
+  if (angle === null || angle === undefined) return 'N';
+  const degrees = ((angle * 180) / Math.PI + 360) % 360;
+  return ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'][Math.round(degrees / 45) % 8];
+}
+
+function showRoundBanner(text) {
+  roundBanner.textContent = text;
+  roundBanner.classList.remove('show');
+  void roundBanner.offsetWidth;
+  roundBanner.classList.add('show');
+}
+
+function addKillFeed(text) {
+  killFeedItems = [{ text, id: Date.now() }, ...killFeedItems].slice(0, 3);
+  killFeedEl.innerHTML = killFeedItems.map((item) => `<p>+ ${item.text}</p>`).join('');
+}
+
+function hideAllScreens() {
+  [startScreen, tutorialLayer, pauseLayer, resultLayer].forEach((layer) =>
+    layer.classList.remove('active')
+  );
+}
+
+function showResultScreen() {
+  if (resultShown) return;
+  resultShown = true;
+  const best = Math.max(Number(localStorage.getItem('dataHeistBestScore') || 0), player.score);
+  localStorage.setItem('dataHeistBestScore', String(best));
+  const won = winner && winner.id === player.id;
+  resultEyebrowEl.textContent = won ? 'SIGNAL SECURED' : 'RUN COMPLETE';
+  resultTitleEl.textContent = won ? 'YOU WIN' : 'SIGNAL LOST';
+  resultScoreEl.textContent = String(player.score);
+  resultKillsEl.textContent = String(roundKillsTotal);
+  resultRoundsEl.textContent = String(Math.max(0, roundNumber - (won ? 0 : 1)));
+  bestScoreEl.textContent = String(best);
+  resultLayer.classList.add('active');
+}
+
+function startTutorial() {
+  if (localStorage.getItem('dataHeistTutorialSeen')) {
+    restartGame();
+    return;
+  }
+  tutorialStep = 0;
+  updateTutorial();
+  startScreen.classList.remove('active');
+  tutorialLayer.classList.add('active');
+}
+
+function updateTutorial() {
+  const [title, copy] = tutorialSteps[tutorialStep];
+  tutorialStepEl.textContent = String(tutorialStep + 1).padStart(2, '0');
+  tutorialTitleEl.textContent = title;
+  tutorialCopyEl.textContent = copy;
+  tutorialProgressEl.style.width = `${((tutorialStep + 1) / tutorialSteps.length) * 100}%`;
+  tutorialNextBtn.innerHTML =
+    tutorialStep === tutorialSteps.length - 1 ? 'START RUN <span>→</span>' : 'NEXT <span>→</span>';
+}
+
 function drawGrid() {
   const zone = activeZone;
 
   for (let y = 0; y < GRID_SIZE; y += 1) {
     for (let x = 0; x < GRID_SIZE; x += 1) {
       const insideZone = isInsideZoneCell(x, y, zone);
-      const color = insideZone ? ((x + y) % 2 === 0 ? '#0f2d43' : '#143850') : '#07111b';
+      const color = insideZone ? ((x + y) % 2 === 0 ? '#0b2635' : '#0d3040') : '#050c13';
 
       ctx.fillStyle = color;
       ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
-      ctx.strokeStyle = insideZone ? '#215673' : '#0d1a27';
+      ctx.strokeStyle = insideZone ? '#184a5a' : '#0a1721';
       ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
   }
 
   ctx.save();
-  ctx.strokeStyle = '#7de0ff';
+  ctx.strokeStyle = '#54e1ee';
   ctx.lineWidth = 3;
   ctx.strokeRect(
     zone.left * TILE_SIZE + 1.5,
@@ -335,14 +478,32 @@ function drawGrid() {
 }
 
 function drawEntity(entity) {
-  const padding = 8;
+  const centerX = entity.x * TILE_SIZE + TILE_SIZE / 2;
+  const centerY = entity.y * TILE_SIZE + TILE_SIZE / 2;
+  const radius = TILE_SIZE * 0.27;
+  ctx.save();
+  ctx.shadowColor = entity.color;
+  ctx.shadowBlur = entity.isPlayer ? 18 : 8;
   ctx.fillStyle = entity.color;
-  ctx.fillRect(
-    entity.x * TILE_SIZE + padding,
-    entity.y * TILE_SIZE + padding,
-    TILE_SIZE - padding * 2,
-    TILE_SIZE - padding * 2
-  );
+  ctx.beginPath();
+  ctx.moveTo(centerX, centerY - radius);
+  ctx.lineTo(centerX + radius, centerY - radius * 0.35);
+  ctx.lineTo(centerX + radius * 0.78, centerY + radius * 0.75);
+  ctx.lineTo(centerX - radius * 0.78, centerY + radius * 0.75);
+  ctx.lineTo(centerX - radius, centerY - radius * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#d9ffff';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  if (entity.isPlayer) {
+    ctx.fillStyle = '#06121b';
+    ctx.font = '700 7px Orbitron, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('YOU', centerX, centerY + 2);
+  }
+  ctx.restore();
 }
 
 function drawPlanningPlacementPreview() {
@@ -361,6 +522,19 @@ function drawPlanningPlacementPreview() {
   ctx.fillStyle = playerPlacementLocked ? '#67d6ff' : '#ffd166';
   ctx.fillRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10);
   ctx.restore();
+
+  if (player.selectedAngle !== null) {
+    const ray = getRayEnd(player, player.selectedAngle, activeZone);
+    ctx.save();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgb(84 225 238 / 0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(ray.startX * TILE_SIZE, ray.startY * TILE_SIZE);
+    ctx.lineTo(ray.endX * TILE_SIZE, ray.endY * TILE_SIZE);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawAimIndicator(entity) {
@@ -441,6 +615,13 @@ function drawFireLines(nowSeconds) {
 
 function drawEntities(nowSeconds) {
   if (gameState === 'planning') {
+    bots
+      .filter((bot) => bot.alive)
+      .forEach((bot) => {
+        drawEntity(bot);
+        drawAimIndicator(bot);
+      });
+    drawEntity(player);
     drawPlanningPlacementPreview();
     return;
   }
@@ -464,8 +645,8 @@ function drawEntities(nowSeconds) {
 
 function getCanvasGridCell(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+  const scaleX = LOGICAL_CANVAS_SIZE / rect.width;
+  const scaleY = LOGICAL_CANVAS_SIZE / rect.height;
   const x = Math.floor(((clientX - rect.left) * scaleX) / TILE_SIZE);
   const y = Math.floor(((clientY - rect.top) * scaleY) / TILE_SIZE);
 
@@ -544,6 +725,11 @@ function gameLoop(timestamp) {
 window.addEventListener('keydown', (event) => {
   const key = event.key;
 
+  if (key === 'Escape' && (gameState === 'planning' || gameState === 'resolution' || isPaused)) {
+    togglePause();
+    return;
+  }
+
   if (key.toLowerCase() === 'r') {
     restartGame();
     return;
@@ -569,6 +755,39 @@ if (restartBtn) {
   });
 }
 
+function togglePause() {
+  if (gameState === 'gameover' || gameState === 'title') return;
+  isPaused = !isPaused;
+  pauseLayer.classList.toggle('active', isPaused);
+  pauseBtn.textContent = isPaused ? 'RESUME' : 'PAUSE';
+  updateUI();
+}
+
+playBtn.addEventListener('click', startTutorial);
+playAgainBtn.addEventListener('click', restartGame);
+pauseBtn.addEventListener('click', togglePause);
+resumeBtn.addEventListener('click', togglePause);
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? 'SFX OFF' : 'SFX ON';
+});
+tutorialNextBtn.addEventListener('click', () => {
+  if (tutorialStep < tutorialSteps.length - 1) {
+    tutorialStep += 1;
+    updateTutorial();
+    return;
+  }
+  localStorage.setItem('dataHeistTutorialSeen', '1');
+  restartGame();
+});
+readyBtn.addEventListener('click', () => {
+  if (gameState === 'planning' && player.alive) {
+    playerPlacementLocked = true;
+    lastPlayerCell = { x: player.x, y: player.y };
+    beginResolutionPhase(performance.now() / 1000);
+  }
+});
+
 // Allow keyboard control when joystick element is focused.
 joystickEl.addEventListener('keydown', (e) => {
   if (gameState !== 'planning' || !player.alive) return;
@@ -591,7 +810,28 @@ joystickEl.addEventListener('keydown', (e) => {
 
 canvas.addEventListener('pointerdown', (event) => {
   const cell = getCanvasGridCell(event.clientX, event.clientY);
+  if (cell && cell.x === player.x && cell.y === player.y && gameState === 'planning') {
+    canvasAimPointerActive = true;
+    canvas.setPointerCapture(event.pointerId);
+    return;
+  }
   setPlayerPlacementFromCell(cell);
+});
+
+canvas.addEventListener('pointermove', (event) => {
+  if (!canvasAimPointerActive || gameState !== 'planning') return;
+  const rect = canvas.getBoundingClientRect();
+  const scale = LOGICAL_CANVAS_SIZE / rect.width;
+  const pointerX = (event.clientX - rect.left) * scale;
+  const pointerY = (event.clientY - rect.top) * scale;
+  const centerX = (player.x + 0.5) * TILE_SIZE;
+  const centerY = (player.y + 0.5) * TILE_SIZE;
+  player.selectedAngle = Math.atan2(pointerY - centerY, pointerX - centerX);
+  updateUI();
+});
+
+canvas.addEventListener('pointerup', () => {
+  canvasAimPointerActive = false;
 });
 
 joystickEl.addEventListener('pointerdown', (event) => {
@@ -627,7 +867,9 @@ function stopJoystickPointer(event) {
 joystickEl.addEventListener('pointerup', stopJoystickPointer);
 joystickEl.addEventListener('pointercancel', stopJoystickPointer);
 
-restartGame();
+configureCanvasResolution();
+setupEntities();
+updateUI();
 requestAnimationFrame((time) => {
   lastTime = time;
   requestAnimationFrame(gameLoop);

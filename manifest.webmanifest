@@ -1,0 +1,10 @@
+{
+  "name": "Data Heist",
+  "short_name": "Data Heist",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#07111b",
+  "theme_color": "#07111b",
+  "description": "Survive the shrinking zone in a neon prediction duel.",
+  "icons": []
+}
